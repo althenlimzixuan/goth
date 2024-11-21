@@ -366,9 +366,35 @@ func updateSessionValue(session *sessions.Session, key, value string) error {
 	return nil
 }
 
-func FetchUserInfoWithToken(token string) (goth.User, error) {
+func FetchUserInfoWithToken(token string, providerName string, sessionValues interface{}) (goth.User, *goth.Session, error) {
 
 	result := goth.User{}
 
-	return result, nil
+	if token == "" {
+		return result, nil, fmt.Errorf("cannot get user information without accessToken")
+	}
+
+	provider, err := goth.GetProvider(providerName)
+	if err != nil {
+		return result, nil, err
+	}
+
+	session, err := provider.CreateSession(sessionValues)
+	if err != nil {
+		return result, nil, err
+	}
+
+	sess, err := provider.UnmarshalSession(session.Marshal())
+
+	if err != nil {
+		return result, nil, err
+	}
+
+	user, err := provider.FetchUser(sess)
+
+	if err != nil {
+		return result, nil, err
+	}
+
+	return user, &session, nil
 }

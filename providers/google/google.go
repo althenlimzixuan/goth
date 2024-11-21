@@ -15,7 +15,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const endpointProfile string = "https://www.googleapis.com/oauth2/v2/userinfo"
+const (
+	endpointProfile string = "https://www.googleapis.com/oauth2/v2/userinfo"
+	authURL         string = "https://accounts.google.com/o/oauth2/auth?access_type=offline"
+	tokenURL        string = "https://accounts.google.com/o/oauth2/token"
+	idTokenProfile  string = "https://www.googleapis.com/oauth2/v3/tokeninfo"
+)
 
 // New creates a new Google provider, and sets up important connection details.
 // You should always call `google.New` to get a new Provider. Never try to create
@@ -96,16 +101,34 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 		IDToken:      sess.IDToken,
 	}
 
-	if user.AccessToken == "" {
+	if user.AccessToken == "" && user.IDToken == "" {
 		// Data is not yet retrieved, since accessToken is still empty.
-		return user, fmt.Errorf("%s cannot get user information without accessToken", p.providerName)
+		return user, fmt.Errorf("%s cannot get user information without accessToken AND idToken", p.providerName)
 	}
 
-	response, err := p.Client().Get(endpointProfile + "?access_token=" + url.QueryEscape(sess.AccessToken))
+	var response *http.Response
+	var err error
+	// retrievedViaIDToken := false
+
+	if user.IDToken != "" {
+		// retrievedViaIDToken = true
+		response, err = p.Client().Get(idTokenProfile + "?id_token=" + url.QueryEscape(sess.IDToken))
+		if response.StatusCode == http.StatusBadRequest && len(sess.AccessToken) > 0 {
+			response, err = p.Client().Get(endpointProfile + "?access_token=" + url.QueryEscape(sess.AccessToken))
+			// retrievedViaIDToken = false
+		}
+
+	} else {
+		response, err = p.Client().Get(endpointProfile + "?access_token=" + url.QueryEscape(sess.AccessToken))
+	}
+
+	if response != nil {
+		defer response.Body.Close()
+	}
+
 	if err != nil {
 		return user, err
 	}
-	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return user, fmt.Errorf("%s responded with a %d trying to fetch user information", p.providerName, response.StatusCode)
@@ -212,6 +235,5 @@ func (p *Provider) SetAccessType(at string) {
 }
 
 func (p *Provider) FetchUserWithToken(token string) (goth.User, error) {
-	//TODO: Implement this
 	return goth.User{}, errors.New("not implemented")
 }

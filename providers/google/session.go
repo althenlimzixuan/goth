@@ -63,5 +63,24 @@ func (p *Provider) UnmarshalSession(data string) (goth.Session, error) {
 }
 
 func (p *Provider) CreateSession(sessionValue interface{}) (goth.Session, error) {
-	return &Session{}, errors.New("not implemented")
+	// First retrieve following keys with it's values from sessionValue
+	// - accessToken
+	// - expiresIn
+	// - clientID
+
+	// Then create a new session with the retrieved values
+	sessStruct := sessionValue.(map[string]interface{})
+
+	accessToken := sessStruct["accessToken"].(string)
+	expiresIn := sessStruct["expiresIn"].(time.Time)
+
+	session := &Session{
+		AccessToken: accessToken,
+		IDToken:     accessToken,
+		ExpiresAt:   expiresIn,
+	}
+
+	// ClientID = clientID
+
+	return session, nil
 }
