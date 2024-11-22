@@ -108,14 +108,14 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 
 	var response *http.Response
 	var err error
-	// retrievedViaIDToken := false
+	retrievedViaIDToken := false
 
-	if user.IDToken != "" {
-		// retrievedViaIDToken = true
+	if user.IDToken != "" && user.IDToken == user.AccessToken {
+		retrievedViaIDToken = true
 		response, err = p.Client().Get(idTokenProfile + "?id_token=" + url.QueryEscape(sess.IDToken))
 		if response.StatusCode == http.StatusBadRequest && len(sess.AccessToken) > 0 {
 			response, err = p.Client().Get(endpointProfile + "?access_token=" + url.QueryEscape(sess.AccessToken))
-			// retrievedViaIDToken = false
+			retrievedViaIDToken = false
 		}
 
 	} else {
@@ -140,11 +140,47 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	}
 
 	var u googleUser
+
 	if err := json.Unmarshal(responseBytes, &u); err != nil {
 		return user, err
 	}
 
 	// Extract the user data we got from Google into our goth.User.
+	if err := json.Unmarshal(responseBytes, &user.RawData); err != nil {
+		return user, err
+	}
+
+	if retrievedViaIDToken {
+
+		uClaim := struct {
+			ID        string `json:"sub"`
+			Name      string `json:"name"`
+			Email     string `json:"email"`
+			FirstName string `json:"given_name"`
+			LastName  string `json:"family_name"`
+			Picture   string `json:"picture"`
+			Verified  string `json:"email_verified"`
+			Issuer    string `json:"iis"`
+			Audience  string `json:"aud"`
+			IssuedAt  string `json:"iat"`
+			Expiry    string `json:"exp"`
+		}{}
+
+		err := json.Unmarshal(responseBytes, &uClaim)
+
+		if err != nil {
+			return user, err
+		}
+
+		user.UserID = uClaim.ID
+		user.Email = uClaim.Email
+		user.Name = uClaim.Name
+		user.FirstName = uClaim.FirstName
+		user.LastName = uClaim.LastName
+		user.AvatarURL = uClaim.Picture
+		return user, nil
+	}
+
 	user.Name = u.Name
 	user.FirstName = u.FirstName
 	user.LastName = u.LastName
@@ -153,9 +189,6 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	user.AvatarURL = u.Picture
 	user.UserID = u.ID
 	// Google provides other useful fields such as 'hd'; get them from RawData
-	if err := json.Unmarshal(responseBytes, &user.RawData); err != nil {
-		return user, err
-	}
 
 	return user, nil
 }
@@ -236,4 +269,8 @@ func (p *Provider) SetAccessType(at string) {
 
 func (p *Provider) FetchUserWithToken(token string) (goth.User, error) {
 	return goth.User{}, errors.New("not implemented")
+}
+
+func (p *Provider) GetClientID() (string, error) {
+	return p.config.ClientID, nil
 }

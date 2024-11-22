@@ -23,6 +23,7 @@ type Provider interface {
 	// IsPhoneProvided() bool
 	FetchUserWithToken(string) (User, error)
 	CreateSession(interface{}) (Session, error)
+	GetClientID() (string, error)
 }
 
 const NoAuthUrlErrorMessage = "an AuthURL has not been set"

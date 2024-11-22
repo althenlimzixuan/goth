@@ -56,3 +56,7 @@ func (s Session) String() string {
 func (p *Provider) CreateSession(sessionValue interface{}) (goth.Session, error) {
 	return &Session{}, errors.New("not implemented")
 }
+
+func (p *Provider) GetClientID() (string, error) {
+	return p.ClientKey, nil
+}

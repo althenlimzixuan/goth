@@ -219,3 +219,7 @@ func userFromReader(reader io.Reader, user *goth.User) error {
 func (p *Provider) FetchUserWithToken(token string) (goth.User, error) {
 	return goth.User{}, errors.New("not implemented")
 }
+
+func (p *Provider) GetClientID() (string, error) {
+	return p.ClientKey, nil
+}

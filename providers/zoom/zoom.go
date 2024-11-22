@@ -189,3 +189,7 @@ func (p *Provider) IsEmailProvided() bool {
 func (p *Provider) IsPhoneProvided() bool {
 	return false
 }
+
+func (p *Provider) GetClientID() (string, error) {
+	return p.ClientKey, nil
+}

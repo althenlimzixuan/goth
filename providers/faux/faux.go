@@ -117,3 +117,6 @@ func (p *Provider) FetchUserWithToken(token string) (goth.User, error) {
 func (p *Provider) CreateSession(sessionValue interface{}) (goth.Session, error) {
 	return &Session{}, errors.New("not implemented")
 }
+func (p *Provider) GetClientID() (string, error) {
+	return "", nil
+}
