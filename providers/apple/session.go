@@ -32,6 +32,7 @@ type Session struct {
 	AccessToken  string
 	RefreshToken string
 	ExpiresAt    time.Time
+	IDToken      string
 	ID
 }
 
@@ -52,8 +53,9 @@ type IDTokenClaims struct {
 	AccessTokenHash string     `json:"at_hash"`
 	AuthTime        int        `json:"auth_time"`
 	Email           string     `json:"email"`
-	IsPrivateEmail  BoolString `json:"is_private_email"`
+	IsPrivateEmail  BoolString `json:"is_private_email,omitempty"`
 	EmailVerified   BoolString `json:"email_verified,omitempty"`
+	RealUserStatus  int        `json:"real_user_status,omitempty"`
 }
 
 func (s *Session) Authorize(provider goth.Provider, params goth.Params) (string, error) {
@@ -171,5 +173,16 @@ func (bs *BoolString) Value() bool {
 }
 
 func (p *Provider) CreateSession(sessionValue interface{}) (goth.Session, error) {
-	return &Session{}, errors.New("not implemented")
+
+	// Then create a new session with the retrieved values
+	sessStruct := sessionValue.(map[string]interface{})
+
+	accessToken := sessStruct["accessToken"].(string)
+
+	session := &Session{
+		IDToken: accessToken,
+	}
+
+	return session, nil
+
 }

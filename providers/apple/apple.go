@@ -3,17 +3,21 @@
 package apple
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/markbates/goth"
 	"golang.org/x/oauth2"
 )
@@ -27,6 +31,8 @@ const (
 	ScopeName  = "name"
 
 	AppleAudOrIss = "https://appleid.apple.com"
+
+	publicKeyURL string = "https://appleid.apple.com/auth/keys"
 )
 
 type Provider struct {
@@ -131,6 +137,76 @@ func (Provider) UnmarshalSession(data string) (goth.Session, error) {
 // will be encoded into the ID token in the email claim.
 func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	s := session.(*Session)
+
+	jwtToken := s.IDToken
+
+	if jwtToken != "" { // User's token is provided, Authed at SDK level
+
+		user := goth.User{}
+
+		token, err := jwt.ParseWithClaims(jwtToken, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+			kid := token.Header[jwk.KeyIDKey]
+			return p.FetchPublicKey(fmt.Sprintf("%v", kid))
+		})
+
+		if err != nil {
+			fmt.Println("AppleID SSI error: ", err)
+		}
+
+		// Check if the token is valid and extract claims
+		if claims, ok := token.Claims.(*jwt.MapClaims); ok {
+			// Print the claims (payload) as a map
+
+			if !token.Valid {
+				fmt.Println("AppleID SSI error: Invalid token!")
+			}
+
+			// Handle payload
+
+			idTokenPayload := IDTokenClaims{}
+
+			strToken, err := json.Marshal(claims)
+			if err != nil {
+				fmt.Println("AppleID SSI error: Error marshaling the data: ", err, claims)
+			}
+
+			err = json.Unmarshal(strToken, &idTokenPayload)
+			if err != nil {
+				fmt.Println("AppleID SSI error: Error unmarshaling the data: ", err)
+			}
+
+			// user.RawData = claims
+			user.AccessToken = jwtToken
+			user.Provider = p.Name()
+
+			user.UserID = idTokenPayload.Subject
+			user.Email = idTokenPayload.Email
+
+			if idTokenPayload.RealUserStatus == 2 {
+				idTokenPayload.EmailVerified = BoolString{BoolValue: true, StringValue: "true", IsValidBool: true} //
+			}
+
+			user.RawData = make(map[string]interface{})
+
+			val := reflect.ValueOf(idTokenPayload)
+			typeOfS := val.Type()
+
+			for i := 0; i < val.NumField(); i++ {
+				field := val.Field(i)
+				key := typeOfS.Field(i).Name
+				value := field.Interface()
+				user.RawData[key] = value
+			}
+
+			return user, nil
+
+		} else {
+			fmt.Println("Invalid token or claims")
+		}
+
+		return user, nil
+	}
+
 	if s.AccessToken == "" {
 		return goth.User{}, fmt.Errorf("no access token obtained for session with provider %s", p.Name())
 	}
@@ -247,4 +323,26 @@ func (p *Provider) FetchUserWithToken(token string) (goth.User, error) {
 }
 func (p *Provider) GetClientID() (string, error) {
 	return p.config.ClientID, nil
+}
+
+func (p *Provider) FetchPublicKey(kid string) (interface{}, error) {
+	set, err := jwk.Fetch(context.TODO(), publicKeyURL)
+	if err != nil {
+		log.Printf("failed to parse JWK: %s", err)
+		return nil, err
+	}
+
+	key, is_key_match := set.LookupKeyID(kid)
+	if !is_key_match {
+		fmt.Printf("failed to lookup apple key: %s", err)
+		return nil, err
+	}
+
+	mkey, err := key.PublicKey()
+	if err != nil {
+		log.Printf("failed to create public key: %s", err)
+		return nil, err
+	}
+
+	return mkey, nil
 }
