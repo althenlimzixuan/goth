@@ -67,5 +67,19 @@ func (p *Provider) UnmarshalSession(data string) (goth.Session, error) {
 }
 
 func (p *Provider) CreateSession(sessionValue interface{}) (goth.Session, error) {
-	return &Session{}, errors.New("not implemented")
+
+	sessStruct := sessionValue.(map[string]interface{})
+
+	accessToken := sessStruct["accessToken"].(string)
+	openID := sessStruct["userID"].(string)
+
+	session := &Session{
+		AccessToken: accessToken,
+		Openid:      openID,
+	}
+
+	// ClientID = clientID
+
+	return session, nil
+
 }
