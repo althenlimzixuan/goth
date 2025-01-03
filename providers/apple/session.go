@@ -56,6 +56,7 @@ type IDTokenClaims struct {
 	IsPrivateEmail  BoolString `json:"is_private_email,omitempty"`
 	EmailVerified   BoolString `json:"email_verified,omitempty"`
 	RealUserStatus  int        `json:"real_user_status,omitempty"`
+	CHash           string     `json:"c_hash,omitempty"`
 }
 
 func (s *Session) Authorize(provider goth.Provider, params goth.Params) (string, error) {

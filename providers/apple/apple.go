@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strings"
 	"time"
 
@@ -182,22 +181,28 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 			user.UserID = idTokenPayload.Subject
 			user.Email = idTokenPayload.Email
 
-			if idTokenPayload.RealUserStatus == 2 {
+			if (!idTokenPayload.EmailVerified.Value()) && idTokenPayload.RealUserStatus == 2 {
 				idTokenPayload.EmailVerified = BoolString{BoolValue: true, StringValue: "true", IsValidBool: true} //
 			}
 
-			user.RawData = make(map[string]interface{})
+			user.ExpiresAt = time.Unix(int64(idTokenPayload.ExpiresAt), 0)
 
-			val := reflect.ValueOf(idTokenPayload)
-			typeOfS := val.Type()
+			raw_data := make(map[string]interface{})
 
-			for i := 0; i < val.NumField(); i++ {
-				field := val.Field(i)
-				key := typeOfS.Field(i).Name
-				value := field.Interface()
-				user.RawData[key] = value
-			}
+			raw_data["iss"] = idTokenPayload.Issuer
+			raw_data["aud"] = idTokenPayload.Audience
+			raw_data["exp"] = idTokenPayload.ExpiresAt
+			raw_data["iat"] = idTokenPayload.IssuedAt
+			raw_data["sub"] = idTokenPayload.Subject
+			raw_data["at_hash"] = idTokenPayload.AccessTokenHash
+			raw_data["c_hash"] = idTokenPayload.CHash
+			raw_data["email"] = idTokenPayload.Email
+			raw_data["email_verified"] = idTokenPayload.EmailVerified.BoolValue
+			raw_data["auth_time"] = idTokenPayload.AuthTime
+			raw_data["nonce_supported"] = true
+			raw_data["real_user_status"] = idTokenPayload.RealUserStatus
 
+			user.RawData = raw_data
 			return user, nil
 
 		} else {
