@@ -73,10 +73,11 @@ func (p *Provider) CreateSession(sessionValue interface{}) (goth.Session, error)
 
 	accessToken := sessStruct["accessToken"].(string)
 	expiresIn := sessStruct["expiresIn"].(time.Time)
+	idToken := sessStruct["idToken"].(string)
 
 	session := &Session{
 		AccessToken: accessToken,
-		IDToken:     accessToken,
+		IDToken:     idToken,
 		ExpiresAt:   expiresIn,
 	}
 

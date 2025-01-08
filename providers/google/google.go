@@ -110,7 +110,7 @@ func (p *Provider) FetchUser(session goth.Session) (goth.User, error) {
 	var err error
 	retrievedViaIDToken := false
 
-	if user.IDToken != "" && user.IDToken == user.AccessToken {
+	if user.IDToken != "" {
 		retrievedViaIDToken = true
 		response, err = p.Client().Get(idTokenProfile + "?id_token=" + url.QueryEscape(sess.IDToken))
 		if response.StatusCode == http.StatusBadRequest && len(sess.AccessToken) > 0 {
